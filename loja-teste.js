@@ -70,8 +70,10 @@ var REGRAS_TECNICA = [
 [/papel|kraft|couch[eê]/, ["uv"]]
 ];
 function tecnicasDoProduto() {
-var tx = document.body.innerText || "", alvo = "";
-var m = tx.match(/Material do produto:\s*([^\n]+)/i) || tx.match(/Material\s*:\s*([^\n]+)/i);
+var tx = document.body.innerText || "", alvo = "", m = null;
+var lis = document.querySelectorAll("li");
+for (var k = 0; k < lis.length && !m; k++) m = (lis[k].textContent || "").match(/^\s*Material do produto:\s*(.+?)\s*$/i);
+if (!m) m = tx.match(/Material\s*:\s*([^\n]+)/i);
 if (m) alvo = m[1].split(/,| e /)[0];
 var h1 = document.querySelector("h1");
 var nome = h1 ? h1.textContent : "";
