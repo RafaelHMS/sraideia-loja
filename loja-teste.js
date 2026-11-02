@@ -56,6 +56,62 @@ function areaGravacao() {
 var m = (document.body.innerText || "").match(/Área para gravação:\s*([\d.,]+)\s*(?:cm)?\s*[x×]\s*([\d.,]+)/i);
 return m ? [num(m[1]), num(m[2])].sort(function (a, b) { return a - b; }) : null;
 }
+// Técnicas adequadas por material (ordem importa: a primeira regra que bate vale)
+var REGRAS_TECNICA = [
+[/sublima/, ["sublima"]],
+[/inox|\ba[cç]o\b|alum[ií]nio|metal|ferro/, ["laser", "uv"]],
+[/cer[aâ]mica|porcelana/, ["sublima", "uv"]],
+[/vidro/, ["uv"]],
+[/bambu|madeira|\bmdf\b|corti[cç]a/, ["laser"]],
+[/couro|\bpu\b|poliuretano/, ["laser", "uv"]],
+[/poli[eé]ster|taf[eé]t[aá]/, ["dtf", "sublima"]],
+[/algod[aã]o|nylon|n[aá]ilon|oxford|tecido|lona|feltro|juta|\btnt\b|sarja|jacquard|neoprene|malha|veludo/, ["dtf"]],
+[/pl[aá]stico|acr[ií]lico|\bpvc\b|\babs\b|\bpp\b|silicone|borracha|\beva\b/, ["uv"]],
+[/papel|kraft|couch[eê]/, ["uv"]]
+];
+function tecnicasDoProduto() {
+var tx = document.body.innerText || "", alvo = "";
+var m = tx.match(/Material do produto:\s*([^\n]+)/i) || tx.match(/Material\s*:\s*([^\n]+)/i);
+if (m) alvo = m[1].split(/,| e /)[0];
+var h1 = document.querySelector("h1");
+var nome = h1 ? h1.textContent : "";
+var busca = [alvo, nome];
+for (var b = 0; b < busca.length; b++) {
+var t = (busca[b] || "").toLowerCase();
+if (!t) continue;
+for (var i = 0; i < REGRAS_TECNICA.length; i++) if (REGRAS_TECNICA[i][0].test(t)) return REGRAS_TECNICA[i][1];
+}
+return null;
+}
+function chaveTecnica(nome) {
+var t = nome.toLowerCase();
+if (/sublima/.test(t)) return "sublima";
+if (/laser/.test(t)) return "laser";
+if (/\buv\b/.test(t)) return "uv";
+if (/dtf/.test(t)) return "dtf";
+return t;
+}
+// Personalizados: "Sem personalização" primeiro e o resto do menor para o maior preço; some o "Máximo de N caracteres"
+function ajustarInfoAdicional() {
+var sels = document.querySelectorAll('select[name="informacoesAdicionais[]"], select.infoSelects');
+for (var i = 0; i < sels.length; i++) {
+var s = sels[i];
+if (s.getAttribute("data-si-ord") === String(s.options.length)) continue;
+var ops = [].slice.call(s.options), atual = s.value;
+var vazio = ops.filter(function (o) { return !o.value || /^selecione/i.test(o.text.trim()); });
+var resto = ops.filter(function (o) { return vazio.indexOf(o) < 0; });
+var preco = function (o) { var m = o.text.match(/R\$\s*([\d.,]+)/); return m ? num(m[1]) : 0; };
+resto.sort(function (a, b) {
+var sa = /^sem /i.test(a.text.trim()) ? 0 : 1, sb = /^sem /i.test(b.text.trim()) ? 0 : 1;
+return sa - sb || preco(a) - preco(b) || a.text.localeCompare(b.text);
+});
+vazio.concat(resto).forEach(function (o) { s.appendChild(o); });
+s.value = atual;
+s.setAttribute("data-si-ord", String(s.options.length));
+}
+var rs = document.querySelectorAll('[id^="restante_"]');
+for (var j = 0; j < rs.length; j++) { var h = rs[j].closest("h5") || rs[j].parentElement; if (h && h.style.display !== "none") h.style.display = "none"; }
+}
 function ajustarLayout() {
 var msg = document.querySelector(".top-bar .message");
 if (msg && msg.textContent !== AVISO_TOPO) msg.textContent = AVISO_TOPO;
@@ -404,6 +460,11 @@ if (!fx.length) return;
 var tec = document.getElementById("si-est-tec"), tam = document.getElementById("si-est-tam"), ag = areaGravacao();
 var tecs = [];
 fx.forEach(function (f) { if (tecs.indexOf(f.tecnica) < 0) tecs.push(f.tecnica); });
+var permitidas = tecnicasDoProduto();
+if (permitidas) {
+var filtradas = tecs.filter(function (t) { return permitidas.indexOf(chaveTecnica(t)) >= 0; });
+if (filtradas.length) tecs = filtradas;
+}
 tecs.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; tec.appendChild(o); });
 tec.onchange = function () {
 tam.innerHTML = '\x3coption value="">Tamanho da arte\x3c/option>';
@@ -419,6 +480,7 @@ if (lst.length === 1) tam.value = "0";
 calcEst();
 };
 tam.onchange = calcEst;
+if (tecs.length === 1) { tec.value = tecs[0]; tec.onchange(); }
 document.getElementById("si-qtd").addEventListener("input", calcEst);
 var ts = caixa.querySelectorAll('input[name="si-tipo"]');
 for (var k = 0; k < ts.length; k++) ts[k].addEventListener("change", calcEst);
@@ -914,8 +976,9 @@ montarQuadrosCategoria();
 montarVitrinesCarrossel();
 montarOcasioesEBanner();
 montarRodapeSobre();
+ajustarInfoAdicional();
 if (window.MutationObserver) {
-new MutationObserver(function () { ajustarLayout(); ajustarVitrine(); montarCaixaProduto(); montarOutrosTamanhos(); montarQuantidadeCompra(); corrigirAmostras(); montarMenuInstitucional(); })
+new MutationObserver(function () { ajustarLayout(); ajustarInfoAdicional(); ajustarVitrine(); montarCaixaProduto(); montarOutrosTamanhos(); montarQuantidadeCompra(); corrigirAmostras(); montarMenuInstitucional(); })
 .observe(document.body, { childList: true, subtree: true });
 }
 }
