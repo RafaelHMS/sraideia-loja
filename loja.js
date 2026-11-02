@@ -12,6 +12,50 @@ var BENEFICIOS = [
 var PAGINAS_OCULTAS = ["/pagamento", "/tempo-de-garantia"];
 var CHAVE = "sraideia_orcamento_v1";
 var MINIMO = 10;                  // pedido minimo (unidades) nos Brindes atacado
+// Precos da personalizacao: aba "Faixas" da planilha "Sra-Ideia-Precificacao-Personalizacao" (publicada como CSV).
+// A Monica muda os valores na aba "Valores" da planilha; o site le daqui.
+var FAIXAS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcCRGPJP7o83XoZMwcAeQ958SERlb8cc-BrWzASQ6S9a5bmhqWf3GFclMpHDf-79X8DSZtPtHuIYQY/pub?gid=108716330&single=true&output=csv";
+function csvLinhas(t) {
+var out = [], lin = [], campo = "", aspas = false;
+for (var i = 0; i < t.length; i++) {
+var c = t[i];
+if (aspas) { if (c === '"') { if (t[i + 1] === '"') { campo += '"'; i++; } else aspas = false; } else campo += c; }
+else if (c === '"') aspas = true;
+else if (c === ",") { lin.push(campo); campo = ""; }
+else if (c === "\n" || c === "\r") { if (c === "\r" && t[i + 1] === "\n") i++; lin.push(campo); out.push(lin); lin = []; campo = ""; }
+else campo += c;
+}
+if (campo || lin.length) { lin.push(campo); out.push(lin); }
+return out;
+}
+function num(v) { return parseFloat(String(v || "").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")); }
+function reais(v) { return "R$ " + v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+var faixasPromessa = null;
+function carregarFaixas() {
+if (faixasPromessa) return faixasPromessa;
+var CH = "sraideia_faixas_v1";
+try { var g = JSON.parse(sessionStorage.getItem(CH)); if (g && Date.now() - g.t < 600000 && g.f.length) return (faixasPromessa = Promise.resolve(g.f)); } catch (e) {}
+faixasPromessa = fetch(FAIXAS_CSV).then(function (r) { return r.text(); }).then(function (t) {
+var f = [];
+csvLinhas(t).forEach(function (l) {
+var preco = num(l[5]), larg = num(l[2]), alt = num(l[3]);
+if (l[0] && l[1] && l[0] !== "Técnica" && preco > 0 && larg > 0 && alt > 0) f.push({ tecnica: l[0].trim(), faixa: l[1].trim(), larg: larg, alt: alt, preco: preco });
+});
+try { sessionStorage.setItem(CH, JSON.stringify({ t: Date.now(), f: f })); } catch (e) {}
+return f;
+}).catch(function () { return []; });
+return faixasPromessa;
+}
+(function () {
+var st = document.createElement("style");
+st.textContent = ".si-est-campos{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}.si-est-campos select{flex:1 1 200px;padding:8px;border:1px solid #ccc;border-radius:8px;font:inherit;background:#fff}" +
+".si-est-res strong{color:#1f7a99;font-size:1.05em}.si-est-res small{display:block;color:#777;margin-top:4px}";
+document.head.appendChild(st);
+})();
+function areaGravacao() {
+var m = (document.body.innerText || "").match(/Área para gravação:\s*([\d.,]+)\s*(?:cm)?\s*[x×]\s*([\d.,]+)/i);
+return m ? [num(m[1]), num(m[2])].sort(function (a, b) { return a - b; }) : null;
+}
 function ajustarLayout() {
 var msg = document.querySelector(".top-bar .message");
 if (msg && msg.textContent !== AVISO_TOPO) msg.textContent = AVISO_TOPO;
@@ -321,6 +365,11 @@ caixa.innerHTML =
 '\x3cinput id="si-qtd" class="si-orc-qtd" type="number" min="' + MINIMO + '" step="1" value="' + MINIMO + '">' +
 '\x3cspan class="si-min">Pedido mínimo: ' + MINIMO + ' unidades\x3c/span>\x3c/div>' +
 campoTipo() +
+'\x3cdiv class="si-orc-linha si-est" id="si-est" style="display:none">\x3clabel>Estimativa da personalização (opcional)\x3c/label>' +
+'\x3cdiv class="si-anexo-dica">Escolha a técnica e o tamanho da arte para ver um valor de referência.\x3c/div>' +
+'\x3cdiv class="si-est-campos">\x3cselect id="si-est-tec">\x3coption value="">Técnica: ainda não sei\x3c/option>\x3c/select>' +
+'\x3cselect id="si-est-tam" disabled>\x3coption value="">Tamanho da arte\x3c/option>\x3c/select>\x3c/div>' +
+'\x3cdiv class="si-est-res" id="si-est-res">\x3c/div>\x3c/div>' +
 '\x3cdiv class="si-orc-linha" style="display:block">\x3clabel for="si-obs">Detalhes da personalização (opcional)\x3c/label>' +
 '\x3ctextarea id="si-obs" class="si-orc-obs" placeholder="Ex.: nome, logo da empresa, cores, data do evento...">\x3c/textarea>\x3c/div>' +
 campoAnexo("si-anexo-produto") +
@@ -339,6 +388,42 @@ caixa.insertBefore(e, caixa.querySelector(".si-orc-linha"));
 var anexoP = document.getElementById("si-anexo-produto");
 ligarAnexo(anexoP);
 var lerTipo = ligarTipo(caixa);
+var estAtual = null;
+function nPers() { var r = caixa.querySelector('input[name="si-tipo"]:checked'); return r && /Duas/.test(r.value) ? 2 : 1; }
+function calcEst() {
+var res = document.getElementById("si-est-res"), tam = document.getElementById("si-est-tam");
+var f = tam.siLista && tam.siLista[tam.value];
+if (!f) { estAtual = null; res.textContent = ""; return; }
+var n = nPers(), q = qtd(), porPeca = f.preco * n;
+estAtual = { texto: f.tecnica + " – " + f.faixa + " (até " + String(f.larg).replace(".", ",") + "×" + String(f.alt).replace(".", ",") + " cm)" + (n > 1 ? ", 2 personalizações" : ""), peca: porPeca };
+res.innerHTML = '\x3cstrong>' + reais(porPeca) + ' por peça\x3c/strong> · ' + reais(porPeca * q) + ' para ' + q + ' peças' +
+'\x3csmall>Valor de referência só da personalização. O preço do produto e o valor final vêm no orçamento.\x3c/small>';
+}
+carregarFaixas().then(function (fx) {
+if (!fx.length) return;
+var tec = document.getElementById("si-est-tec"), tam = document.getElementById("si-est-tam"), ag = areaGravacao();
+var tecs = [];
+fx.forEach(function (f) { if (tecs.indexOf(f.tecnica) < 0) tecs.push(f.tecnica); });
+tecs.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; tec.appendChild(o); });
+tec.onchange = function () {
+tam.innerHTML = '\x3coption value="">Tamanho da arte\x3c/option>';
+var lst = fx.filter(function (f) { return f.tecnica === tec.value; });
+if (ag) {
+var cabe = lst.filter(function (f) { var d = [f.larg, f.alt].sort(function (a, b) { return a - b; }); return d[0] <= ag[0] + 0.5 && d[1] <= ag[1] + 0.5; });
+lst = cabe.length ? cabe : lst.slice(0, 1);
+}
+tam.siLista = lst;
+lst.forEach(function (f, i) { var o = document.createElement("option"); o.value = i; o.textContent = f.faixa + " – até " + String(f.larg).replace(".", ",") + "×" + String(f.alt).replace(".", ",") + " cm (" + reais(f.preco) + ")"; tam.appendChild(o); });
+tam.disabled = !tec.value;
+if (lst.length === 1) tam.value = "0";
+calcEst();
+};
+tam.onchange = calcEst;
+document.getElementById("si-qtd").addEventListener("input", calcEst);
+var ts = caixa.querySelectorAll('input[name="si-tipo"]');
+for (var k = 0; k < ts.length; k++) ts[k].addEventListener("change", calcEst);
+document.getElementById("si-est").style.display = "block";
+});
 function validar() {
 var aviso = document.getElementById("si-aviso");
 aviso.classList.remove("si-erro");
@@ -361,7 +446,8 @@ var p = produtoAtual(), obs = document.getElementById("si-obs").value.trim();
 var msg = "Olá, " + LOJA + "! Gostaria de um orçamento:\n\n" +
 "• " + p.nome + (p.variacao ? " (" + p.variacao + ")" : "") + (p.ref ? " - Ref. " + p.ref : "") +
 "\n  Quantidade: " + qtd() + "\n  " + p.url +
-"\n  Personalização: " + tipo + (obs ? "\n  Detalhes: " + obs : "") + textoAnexos(anexoP.siArquivos);
+"\n  Personalização: " + tipo + (estAtual ? "\n  Estimativa da personalização: " + estAtual.texto + " = " + reais(estAtual.peca) + " por peça (" + reais(estAtual.peca * qtd()) + " no total)" : "") +
+(obs ? "\n  Detalhes: " + obs : "") + textoAnexos(anexoP.siArquivos);
 abrirWhats(msg);
 guiaAnexos(anexoP.siArquivos.slice());
 };
@@ -371,9 +457,9 @@ if (!tipo) return;
 var p = produtoAtual(), lista = ler(), obs = document.getElementById("si-obs").value.trim();
 var chave = p.url + "|" + p.variacao, achou = false;
 for (var i = 0; i < lista.length; i++) {
-if (lista[i].chave === chave) { lista[i].qtd += qtd(); lista[i].tipo = tipo; if (obs) lista[i].obs = obs; achou = true; }
+if (lista[i].chave === chave) { lista[i].qtd += qtd(); lista[i].tipo = tipo; lista[i].est = estAtual; if (obs) lista[i].obs = obs; achou = true; }
 }
-if (!achou) lista.push({ chave: chave, nome: p.nome, variacao: p.variacao, ref: p.ref, url: p.url, img: p.img, qtd: qtd(), tipo: tipo, obs: obs });
+if (!achou) lista.push({ chave: chave, nome: p.nome, variacao: p.variacao, ref: p.ref, url: p.url, img: p.img, qtd: qtd(), tipo: tipo, est: estAtual, obs: obs });
 gravar(lista);
 var av = document.getElementById("si-aviso");
 av.innerHTML = '\x3cdiv class="si-add-ok">\x3cstrong>\u2713 Adicionado à sua lista de orçamento!\x3c/strong>' +
@@ -609,7 +695,8 @@ var msg = "Olá, " + LOJA + "! " + (nome ? "Sou " + nome + (emp ? " (" + emp + "
 lista.forEach(function (it, i) {
 msg += "\n" + (i + 1) + ") " + it.nome + (it.variacao ? " (" + it.variacao + ")" : "") +
 (it.ref ? " - Ref. " + it.ref : "") + "\n   Quantidade: " + it.qtd +
-(it.tipo ? "\n   Personalização: " + it.tipo : "") + (it.obs ? "\n   Detalhes: " + it.obs : "") + "\n   " + it.url + "\n";
+(it.tipo ? "\n   Personalização: " + it.tipo : "") +
+(it.est ? "\n   Estimativa da personalização: " + it.est.texto + " = " + reais(it.est.peca) + " por peça (" + reais(it.est.peca * it.qtd) + " no total)" : "") + (it.obs ? "\n   Detalhes: " + it.obs : "") + "\n   " + it.url + "\n";
 });
 if (obs) msg += "\nObservações: " + obs;
 var anexoL = painel.querySelector("#si-anexo-lista");
