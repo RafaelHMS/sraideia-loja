@@ -152,6 +152,17 @@ else redes[r].classList.add("si-oculto");
 function ler() { try { return JSON.parse(localStorage.getItem(CHAVE)) || []; } catch (e) { return []; } }
 function gravar(l) { try { localStorage.setItem(CHAVE, JSON.stringify(l)); } catch (e) {} atualizarFab(); }
 function txt(el) { return el ? el.textContent.replace(/\s+/g, " ").trim() : ""; }
+// Planilha de pedidos (Google Apps Script). Vazio = desligado.
+var PEDIDOS_URL = "https://script.google.com/macros/s/AKfycbySomS9Da7ZVxd9iSopvJUWI5HavNt-GZl7oUuNb0HU_9RNZ68ygylDPlSGSVDCwvczSQ/exec";
+function registrarPedido(origem, dados, itens) {
+if (!PEDIDOS_URL) return;
+try {
+var corpo = JSON.stringify({ origem: origem, cliente: dados.cliente || "", empresa: dados.empresa || "", obs: dados.obs || "",
+itens: itens.map(function (i) { return { nome: i.nome, variacao: i.variacao, ref: i.ref, qtd: i.qtd, tipo: i.tipo, obs: i.obs, url: i.url,
+estTexto: i.est ? i.est.texto : "", estPeca: i.est ? i.est.peca : "" }; }) });
+fetch(PEDIDOS_URL, { method: "POST", mode: "no-cors", keepalive: true, headers: { "Content-Type": "text/plain;charset=utf-8" }, body: corpo }).catch(function () {});
+} catch (e) {}
+}
 function abrirWhats(msg) {
 var url = "https://wa.me/" + WHATSAPP + "?text=" + encodeURIComponent(msg);
 window.open(url, "_blank");
@@ -512,6 +523,7 @@ var msg = "Olá, " + LOJA + "! Gostaria de um orçamento:\n\n" +
 "\n  Quantidade: " + qtd() + "\n  " + p.url +
 "\n  Personalização: " + tipo + (estAtual ? "\n  Estimativa da personalização: " + estAtual.texto + " = " + reais(estAtual.peca) + " por peça (" + reais(estAtual.peca * qtd()) + " no total)" : "") +
 (obs ? "\n  Detalhes: " + obs : "") + textoAnexos(anexoP.siArquivos);
+registrarPedido("Produto", {}, [{ nome: p.nome, variacao: p.variacao, ref: p.ref, qtd: qtd(), tipo: tipo, est: estAtual, obs: obs, url: p.url }]);
 abrirWhats(msg);
 guiaAnexos(anexoP.siArquivos.slice());
 };
@@ -765,6 +777,7 @@ msg += "\n" + (i + 1) + ") " + it.nome + (it.variacao ? " (" + it.variacao + ")"
 if (obs) msg += "\nObservações: " + obs;
 var anexoL = painel.querySelector("#si-anexo-lista");
 msg += textoAnexos(anexoL.siArquivos);
+registrarPedido("Lista", { cliente: nome, empresa: emp, obs: obs }, lista);
 abrirWhats(msg);
 if (anexoL.siArquivos.length) { fecharPainel(); guiaAnexos(anexoL.siArquivos.slice()); }
 }
