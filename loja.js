@@ -539,7 +539,7 @@ if (fab) { fab.classList.remove("si-pulsar"); void fab.offsetWidth; fab.classLis
 var RE_TAM = /(?:\s+de)?\s+\d+(?:[.,]\d+)?\s*(?:ml|l|litros?|m|metros?|cm|mm|kg|g|mah)\b/i;
 function semCor(nome) { return String(nome || "").replace(/\s+-\s+[^-]+$/, "").trim(); }
 function chaveTam(nome) {
-return semCor(nome).replace(new RegExp(RE_TAM.source, "ig"), "").replace(/\s+/g, " ").trim().toLowerCase();
+return semCor(nome).replace(/\s+Mod\.\s+\S+/ig, "").replace(/\s+\d+(?:[.,]\d+)?(?:x\d+(?:[.,]\d+)?)+\s*cm\b/ig, "").replace(new RegExp(RE_TAM.source, "ig"), "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 function rotuloTam(nome) {
 var m = semCor(nome).match(new RegExp(RE_TAM.source, "ig"));
