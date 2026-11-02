@@ -63,7 +63,7 @@ var REGRAS_TECNICA = [
 [/cer[aâ]mica|porcelana/, ["sublima", "uv"]],
 [/vidro/, ["uv"]],
 [/bambu|madeira|\bmdf\b|corti[cç]a/, ["laser"]],
-[/couro|\bpu\b|poliuretano/, ["laser", "uv"]],
+[/couro|\bpu\b|poliuretano/, ["uv"]],
 [/poli[eé]ster|taf[eé]t[aá]/, ["dtf", "sublima"]],
 [/algod[aã]o|nylon|n[aá]ilon|oxford|tecido|lona|feltro|juta|\btnt\b|sarja|jacquard|neoprene|malha|veludo/, ["dtf"]],
 [/pl[aá]stico|acr[ií]lico|\bpvc\b|\babs\b|\bpp\b|silicone|borracha|\beva\b/, ["uv"]],
