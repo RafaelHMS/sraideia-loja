@@ -429,16 +429,9 @@ var caixa = document.createElement("div");
 caixa.className = "si-orc-box";
 caixa.innerHTML =
 '\x3ch3>Peça seu orçamento\x3c/h3>' +
-'\x3cp>O valor depende da personalização. Escolha a quantidade e conte o que deseja personalizar.\x3c/p>' +
 '\x3cdiv class="si-orc-linha">\x3clabel for="si-qtd">Quantidade\x3c/label>' +
 '\x3cinput id="si-qtd" class="si-orc-qtd" type="number" min="' + MINIMO + '" step="1" value="' + MINIMO + '">' +
 '\x3cspan class="si-min">Pedido mínimo: ' + MINIMO + ' unidades\x3c/span>\x3c/div>' +
-campoTipo() +
-'\x3cdiv class="si-orc-linha si-est" id="si-est" style="display:none">\x3clabel>Estimativa da personalização (opcional)\x3c/label>' +
-'\x3cdiv class="si-anexo-dica">Escolha a técnica e o tamanho da arte para ver um valor de referência.\x3c/div>' +
-'\x3cdiv class="si-est-campos">\x3cselect id="si-est-tec">\x3coption value="">Técnica: ainda não sei\x3c/option>\x3c/select>' +
-'\x3cselect id="si-est-tam" disabled>\x3coption value="">Tamanho da arte\x3c/option>\x3c/select>\x3c/div>' +
-'\x3cdiv class="si-est-res" id="si-est-res">\x3c/div>\x3c/div>' +
 '\x3cdiv class="si-orc-linha" style="display:block">\x3clabel for="si-obs">Detalhes da personalização (opcional)\x3c/label>' +
 '\x3ctextarea id="si-obs" class="si-orc-obs" placeholder="Ex.: nome, logo da empresa, cores, data do evento...">\x3c/textarea>\x3c/div>' +
 campoAnexo("si-anexo-produto") +
@@ -456,7 +449,8 @@ caixa.insertBefore(e, caixa.querySelector(".si-orc-linha"));
 }
 var anexoP = document.getElementById("si-anexo-produto");
 ligarAnexo(anexoP);
-var lerTipo = ligarTipo(caixa);
+// Brindes atacado (XBZ): sem tipo de personalização e sem estimativa (03/11/2026)
+var lerTipo = function () { return { texto: "" }; };
 var estAtual = null;
 function nPers() { var r = caixa.querySelector('input[name="si-tipo"]:checked'); return r && /Duas/.test(r.value) ? 2 : 1; }
 function calcEst() {
@@ -468,7 +462,7 @@ estAtual = { texto: f.tecnica + " – " + f.faixa + " (até " + String(f.larg).r
 res.innerHTML = '\x3cstrong>' + reais(porPeca) + ' por peça\x3c/strong> · ' + reais(porPeca * q) + ' para ' + q + ' peças' +
 '\x3csmall>Valor de referência só da personalização. O preço do produto e o valor final vêm no orçamento.\x3c/small>';
 }
-carregarFaixas().then(function (fx) {
+if (document.getElementById("si-est")) carregarFaixas().then(function (fx) {
 if (!fx.length) return;
 var tec = document.getElementById("si-est-tec"), tam = document.getElementById("si-est-tam"), ag = areaGravacao();
 var tecs = [];
@@ -516,12 +510,12 @@ return q >= MINIMO ? q : MINIMO;
 }
 document.getElementById("si-whats").onclick = function () {
 var tipo = validar();
-if (!tipo) return;
+if (tipo === null) return;
 var p = produtoAtual(), obs = document.getElementById("si-obs").value.trim();
 var msg = "Olá, " + LOJA + "! Gostaria de um orçamento:\n\n" +
 "• " + p.nome + (p.variacao ? " (" + p.variacao + ")" : "") + (p.ref ? " - Ref. " + p.ref : "") +
 "\n  Quantidade: " + qtd() + "\n  " + p.url +
-"\n  Personalização: " + tipo + (estAtual ? "\n  Estimativa da personalização: " + estAtual.texto + " = " + reais(estAtual.peca) + " por peça (" + reais(estAtual.peca * qtd()) + " no total)" : "") +
+(tipo ? "\n  Personalização: " + tipo : "") + (estAtual ? "\n  Estimativa da personalização: " + estAtual.texto + " = " + reais(estAtual.peca) + " por peça (" + reais(estAtual.peca * qtd()) + " no total)" : "") +
 (obs ? "\n  Detalhes: " + obs : "") + textoAnexos(anexoP.siArquivos);
 registrarPedido("Produto", {}, [{ nome: p.nome, variacao: p.variacao, ref: p.ref, qtd: qtd(), tipo: tipo, est: estAtual, obs: obs, url: p.url }]);
 abrirWhats(msg);
@@ -529,7 +523,7 @@ guiaAnexos(anexoP.siArquivos.slice());
 };
 document.getElementById("si-add").onclick = function () {
 var tipo = validar();
-if (!tipo) return;
+if (tipo === null) return;
 var p = produtoAtual(), lista = ler(), obs = document.getElementById("si-obs").value.trim();
 var chave = p.url + "|" + p.variacao, achou = false;
 for (var i = 0; i < lista.length; i++) {
