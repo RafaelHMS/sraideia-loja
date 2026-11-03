@@ -433,7 +433,7 @@ caixa.innerHTML =
 '\x3cinput id="si-qtd" class="si-orc-qtd" type="number" min="' + MINIMO + '" step="1" value="' + MINIMO + '">' +
 '\x3cspan class="si-min">Pedido mínimo: ' + MINIMO + ' unidades\x3c/span>\x3c/div>' +
 '\x3cdiv class="si-orc-linha" style="display:block">\x3clabel for="si-obs">Detalhes da personalização (opcional)\x3c/label>' +
-'\x3ctextarea id="si-obs" class="si-orc-obs" placeholder="Ex.: nome, logo da empresa, cores, data do evento...">\x3c/textarea>\x3c/div>' +
+'\x3ctextarea id="si-obs" class="si-orc-obs" placeholder="Ex.: Tema da festa, logo da empresa, monogramas, fotos...">\x3c/textarea>\x3c/div>' +
 campoAnexo("si-anexo-produto") +
 '\x3cdiv class="si-orc-linha">' +
 '\x3cbutton type="button" class="si-btn si-btn-principal" id="si-whats">Pedir orçamento pelo WhatsApp\x3c/button>' +
